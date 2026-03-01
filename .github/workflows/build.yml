@@ -1,0 +1,167 @@
+name: Build Mesa3D (MSVC)
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+env:
+  MESA_BRANCH: "25.3"
+  LLVM_VERSION: "21.1.8"
+  SPIRV_VERSION: "vulkan-sdk-1.4.341.0"
+  LIBVA_VERSION: "2.23.0"
+  ZSTD_VERSION: "v1.5.7-kernel"
+  PKGCONF_VERSION: "pkgconf-2.5.1"
+
+jobs:
+  build:
+    name: Mesa3D MSVC x64
+    runs-on: windows-2022
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set devroot path
+        shell: pwsh
+        run: |
+          $devroot = (Resolve-Path "$env:GITHUB_WORKSPACE\..").Path
+          echo "DEVROOT=$devroot" >> $env:GITHUB_ENV
+
+      - name: Install winflexbison
+        run: choco install winflexbison3 -y --no-progress
+
+      - name: Restore LLVM cache
+        id: cache-llvm
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DEVROOT }}\llvm\build
+          key: llvm-msvc-x64-${{ env.LLVM_VERSION }}
+
+      - name: Restore dependencies cache
+        id: cache-deps
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.DEVROOT }}\spirv-tools\build
+            ${{ env.DEVROOT }}\pkgconf\pkgconf
+            ${{ env.DEVROOT }}\libva\build
+            ${{ env.DEVROOT }}\zstd\zstd
+          key: deps-msvc-x64-spirv${{ env.SPIRV_VERSION }}-libva${{ env.LIBVA_VERSION }}-zstd${{ env.ZSTD_VERSION }}-pkgconf${{ env.PKGCONF_VERSION }}
+
+      - name: Build
+        shell: cmd
+        run: |
+          @rem ---- Bot mode (non-interactive) ----
+          @set botmode=1
+
+          @rem ---- Toolchain: MSVC, first available VS installation ----
+          @set selecttoolchain=1
+          @set selectvcpp=1
+          @set legacyllvm=n
+          @set pyselect=1
+          @set useninja=y
+          @set buildmftcodecs=y
+
+          @rem ---- Architecture: x64 ----
+          @set cpuchoice=2
+
+          @rem ---- Build type: Release ----
+          @set mesadbgbld=n
+          @set mesadbgoptim=
+          @set mesaenableasserts=n
+
+          @rem ---- LLVM: build from source, or skip if restored from cache ----
+          @set cfgllvmbuild=y
+          @set amdgpu=y
+          @set buildclang=y
+          @set buildllvm=y
+          @set buildllvmspirv=y
+          @set buildclc=y
+          @if "${{ steps.cache-llvm.outputs.cache-hit }}"=="true" set cfgllvmbuild=n
+          @if "${{ steps.cache-llvm.outputs.cache-hit }}"=="true" set buildclc=n
+
+          @rem ---- Other deps: build from source, or skip if restored from cache ----
+          @set buildpkgconf=y
+          @set buildspvtools=y
+          @set buildlibva=y
+          @set buildzstd=y
+          @if "${{ steps.cache-deps.outputs.cache-hit }}"=="true" set buildpkgconf=n
+          @if "${{ steps.cache-deps.outputs.cache-hit }}"=="true" set buildspvtools=n
+          @if "${{ steps.cache-deps.outputs.cache-hit }}"=="true" set buildlibva=n
+          @if "${{ steps.cache-deps.outputs.cache-hit }}"=="true" set buildzstd=n
+
+          @rem ---- CLonD3D12: attempt build (skipped automatically if WDK absent) ----
+          @set buildclon12=y
+
+          @rem ---- Disable package/tool updates ----
+          @set pyupd=n
+          @set updnuget=n
+          @set msysupdate=n
+          @set msyspkgclear=n
+          @set updrh=n
+          @set enableenvdump=y
+
+          @rem ---- LLVM usage flags ----
+          @set llvmless=n
+          @set lavapipe=y
+          @set mclc=y
+
+          @rem ---- Mesa source: branch 25.3, shallow clone ----
+          @set branch=${{ env.MESA_BRANCH }} --depth=1
+
+          @rem ---- Windows SDK / build throttle ----
+          @set selectwinsdk=1
+          @set throttle=%NUMBER_OF_PROCESSORS%
+
+          @rem ---- Mesa build options ----
+          @set buildmesa=y
+          @set cleanmesabld=y
+          @set experimental=n
+          @set usezstd=y
+          @set glswrast=y
+          @set zink=y
+          @set d3d12=y
+          @set gfxd3d12=y
+          @set virgl=y
+          @set dozenmsvk=y
+          @set vulkanlayers=y
+          @set d3d10umd=y
+          @set gles=y
+          @set buildvaapi=y
+          @set buildpatentedcodecs=y
+          @set mesatests=y
+          @set winfutex=n
+          @set retrybld=0
+          @set dist=y
+          @set mesabldrev=0
+
+          @call buildscript\build.cmd
+
+      - name: Save LLVM cache
+        if: always() && steps.cache-llvm.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DEVROOT }}\llvm\build
+          key: llvm-msvc-x64-${{ env.LLVM_VERSION }}
+
+      - name: Save dependencies cache
+        if: always() && steps.cache-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.DEVROOT }}\spirv-tools\build
+            ${{ env.DEVROOT }}\pkgconf\pkgconf
+            ${{ env.DEVROOT }}\libva\build
+            ${{ env.DEVROOT }}\zstd\zstd
+          key: deps-msvc-x64-spirv${{ env.SPIRV_VERSION }}-libva${{ env.LIBVA_VERSION }}-zstd${{ env.ZSTD_VERSION }}-pkgconf${{ env.PKGCONF_VERSION }}
+
+      - name: Upload Mesa3D distribution
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesa3d-msvc-x64
+          path: bin/

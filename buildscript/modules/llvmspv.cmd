@@ -1,11 +1,20 @@
-@setlocal
+@setlocal ENABLEDELAYEDEXPANSION
+
+@rem Determine SPIRV-LLVM-Translator branch or tag compatible with current LLVM version.
+@rem SPIRV-LLVM-Translator uses llvm_release_XXX0 branch names up to LLVM 19.x, and
+@rem version tags (vMAJOR.MINOR.PATCH) for LLVM 20+. Use git ls-remote to find the latest
+@rem matching tag for LLVM 20 and newer.
+@set llvmmajor=0
+@IF EXIST "%llvminstloc%\%abi%\lib\cmake\llvm\LLVMConfig.cmake" FOR /F tokens^=^1^,2^ eol^= %%a IN ('type "%llvminstloc%\%abi%\lib\cmake\llvm\LLVMConfig.cmake"') DO @IF "%%a"=="set(LLVM_PACKAGE_VERSION" FOR /F tokens^=^1^ delims^=^.^ eol^= %%c IN ("%%b") DO @set llvmmajor=%%c
+@set spvref=llvm_release_%llvmmajor%0
+@IF %llvmmajor% GEQ 20 for /f tokens^=3^ delims^=/ eol^= %%t IN ('git ls-remote --sort=-version:refname --tags https://github.com/KhronosGroup/SPIRV-LLVM-Translator "refs/tags/v%llvmmajor%.*" 2^>nul') DO @(set "spvt=%%t" & if not "!spvt:~-1!"=="}" if "!spvref:~0,13!"=="llvm_release_" set "spvref=!spvt!")
 
 @rem Updating SPIRV LLVM translator source code
 @IF EXIST "%devroot%\SPIRV-LLVM-Translator\" IF %gitstate% GTR 0 (
 @cd "%devroot%\SPIRV-LLVM-Translator"
 @echo Updating SPIRV LLVM translator...
 @git pull --progress --tags --recurse-submodules origin
-@IF EXIST "%llvminstloc%\%abi%\lib\cmake\llvm\LLVMConfig.cmake" FOR /F tokens^=^1^,2^ eol^= %%a IN ('type "%llvminstloc%\%abi%\lib\cmake\llvm\LLVMConfig.cmake"') DO @IF "%%a"=="set(LLVM_PACKAGE_VERSION" FOR /F tokens^=^1^ delims^=^.^ eol^= %%c IN ("%%b") DO @git checkout llvm_release_%%c0
+@git checkout %spvref%
 @git pull --progress --tags --recurse-submodules origin
 @echo.
 )
@@ -28,7 +37,7 @@
 
 @IF NOT EXIST "%devroot%\SPIRV-LLVM-Translator\" (
 @echo Getting SPIRV LLVM translator source code...
-@FOR /F tokens^=^1^,2^ eol^= %%a IN ('type "%llvminstloc%\%abi%\lib\cmake\llvm\LLVMConfig.cmake"') DO @IF "%%a"=="set(LLVM_PACKAGE_VERSION" FOR /F tokens^=^1^ delims^=^.^ eol^= %%c IN ("%%b") DO @git clone -b llvm_release_%%c0 https://github.com/KhronosGroup/SPIRV-LLVM-Translator "%devroot%\SPIRV-LLVM-Translator"
+@git clone -b %spvref% https://github.com/KhronosGroup/SPIRV-LLVM-Translator "%devroot%\SPIRV-LLVM-Translator"
 @echo.
 )
 @IF EXIST "%devroot%\SPIRV-LLVM-Translator\spirv-headers-tag.conf" IF NOT EXIST "%devroot%\SPIRV-Headers\" (

@@ -54,6 +54,12 @@ jobs:
             ${{ env.DEVROOT }}\zstd\zstd
           key: deps-msvc-x64-spirv${{ env.SPIRV_VERSION }}-libva${{ env.LIBVA_VERSION }}-zstd${{ env.ZSTD_VERSION }}-pkgconf${{ env.PKGCONF_VERSION }}
 
+      - name: Add Vulkan SDK tools to PATH
+        shell: pwsh
+        run: |
+          $bin = if ($env:VULKAN_SDK) { "$env:VULKAN_SDK\Bin" } else { "$env:VK_SDK_PATH\Bin" }
+          if (Test-Path $bin) { Add-Content $env:GITHUB_PATH $bin }
+
       - name: Build
         shell: cmd
         run: |

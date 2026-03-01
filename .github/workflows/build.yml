@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  MESA_BRANCH: "25.3"
+  MESA_BRANCH: "main"
   LLVM_VERSION: "21.1.8"
   SPIRV_VERSION: "vulkan-sdk-1.4.341.0"
   LIBVA_VERSION: "2.23.0"

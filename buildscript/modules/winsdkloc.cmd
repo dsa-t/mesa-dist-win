@@ -13,6 +13,7 @@
 @if %winsdkcount% GTR 0 echo.
 @if %winsdkcount% GTR 1 echo Note: This wom't work with Meson Visual Studio backend - https://github.com/mesonbuild/meson/issues/3202
 @if %winsdkcount% GTR 1 echo.
+@if %winsdkcount% GTR 0 if "%selectwinsdk%"=="0" set selectwinsdk=%winsdkcount%
 
 :selectwinsdk
 @if %winsdkcount% GTR 0 call "%devroot%\%projectname%\bin\modules\prompt.cmd" selectwinsdk "Enter choice:"

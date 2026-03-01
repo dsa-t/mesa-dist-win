@@ -116,7 +116,7 @@ jobs:
           @set branch=${{ env.MESA_BRANCH }} --depth=1
 
           @rem ---- Windows SDK / build throttle ----
-          @set selectwinsdk=1
+          @set selectwinsdk=0
           @set throttle=%NUMBER_OF_PROCESSORS%
 
           @rem ---- Mesa build options ----
